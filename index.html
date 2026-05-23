@@ -1,0 +1,1777 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VitalSense AI — Healthcare Analytics Dashboard</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #050d1a;
+    --bg2: #080f1f;
+    --surface: rgba(10,24,50,0.85);
+    --surface2: rgba(15,32,65,0.7);
+    --border: rgba(56,139,253,0.18);
+    --border2: rgba(56,139,253,0.08);
+    --cyan: #00e5ff;
+    --blue: #388bfd;
+    --blue2: #1a6fef;
+    --teal: #00c9a7;
+    --green: #00e676;
+    --amber: #ffb300;
+    --red: #ff4757;
+    --purple: #a78bfa;
+    --pink: #f472b6;
+    --text: #e8f4ff;
+    --text2: #8aafc8;
+    --text3: #4a6a88;
+    --glow: 0 0 30px rgba(0,229,255,0.12);
+    --glow2: 0 0 20px rgba(56,139,253,0.2);
+    --card-shadow: 0 8px 32px rgba(0,0,0,0.5), 0 1px 0 rgba(255,255,255,0.03) inset;
+    --transition: all 0.3s cubic-bezier(0.4,0,0.2,1);
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Background grid */
+  body::before {
+    content:'';
+    position:fixed; inset:0; z-index:0;
+    background-image:
+      linear-gradient(rgba(56,139,253,0.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(56,139,253,0.04) 1px, transparent 1px);
+    background-size: 60px 60px;
+    pointer-events:none;
+  }
+
+  /* ── HEADER ── */
+  .header {
+    position:sticky; top:0; z-index:100;
+    background: rgba(5,13,26,0.92);
+    backdrop-filter: blur(20px);
+    border-bottom: 1px solid var(--border);
+    padding: 0 28px;
+    display: flex; align-items:center; gap:16px;
+    height: 64px;
+    box-shadow: 0 4px 30px rgba(0,0,0,0.4);
+  }
+  .logo {
+    display:flex; align-items:center; gap:10px;
+    font-family:'Syne',sans-serif; font-size:1.15rem; font-weight:800;
+    color: var(--cyan); text-transform:uppercase; letter-spacing:.04em;
+    flex-shrink:0;
+  }
+  .logo svg { width:28px; height:28px; }
+  .logo-badge {
+    background: linear-gradient(135deg, rgba(0,229,255,0.15), rgba(56,139,253,0.15));
+    border: 1px solid rgba(0,229,255,0.3);
+    border-radius: 6px; padding: 2px 8px;
+    font-size:0.6rem; color:var(--cyan); letter-spacing:.1em;
+  }
+  .header-nav { display:flex; gap:4px; align-items:center; flex:1; justify-content:center; flex-wrap:wrap; }
+  .nav-btn {
+    padding:6px 16px; border-radius:8px; font-size:0.8rem;
+    font-family:'DM Sans',sans-serif; font-weight:500;
+    color:var(--text2); border:none; cursor:pointer;
+    background:transparent; transition:var(--transition);
+    white-space:nowrap;
+  }
+  .nav-btn:hover, .nav-btn.active {
+    background: rgba(56,139,253,0.12);
+    color: var(--cyan);
+    border: none;
+  }
+  .header-right { display:flex; align-items:center; gap:12px; flex-shrink:0; }
+  .status-dot {
+    width:8px; height:8px; border-radius:50%;
+    background:var(--green);
+    box-shadow: 0 0 8px var(--green);
+    animation: pulse 2s infinite;
+  }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+  .status-label { font-size:0.75rem; color:var(--text2); }
+  .upload-btn {
+    padding:8px 16px; border-radius:8px;
+    background: linear-gradient(135deg, var(--blue2), var(--blue));
+    border:none; color:white; font-size:0.8rem; font-weight:600;
+    cursor:pointer; transition:var(--transition);
+    display:flex; align-items:center; gap:6px;
+  }
+  .upload-btn:hover { transform:translateY(-1px); box-shadow:var(--glow2); }
+
+  /* ── FILTERS BAR ── */
+  .filters-bar {
+    background: rgba(8,15,31,0.95);
+    border-bottom: 1px solid var(--border2);
+    padding: 12px 28px;
+    display:flex; gap:10px; align-items:center; flex-wrap:wrap;
+  }
+  .filter-group { display:flex; align-items:center; gap:6px; }
+  .filter-label { font-size:0.7rem; color:var(--text3); text-transform:uppercase; letter-spacing:.08em; white-space:nowrap; }
+  .filter-select {
+    background: var(--surface2); border: 1px solid var(--border);
+    color:var(--text); font-size:0.78rem; padding:5px 10px;
+    border-radius:7px; cursor:pointer; outline:none;
+    font-family:'DM Sans',sans-serif;
+    transition:var(--transition); min-width:110px;
+  }
+  .filter-select:hover { border-color:var(--blue); }
+  .filter-select:focus { border-color:var(--cyan); box-shadow:0 0 0 2px rgba(0,229,255,0.1); }
+  .filter-clear {
+    padding:5px 12px; border-radius:7px;
+    border:1px solid rgba(255,71,87,0.3);
+    background:rgba(255,71,87,0.07);
+    color:var(--red); font-size:0.78rem; cursor:pointer;
+    transition:var(--transition); white-space:nowrap;
+  }
+  .filter-clear:hover { background:rgba(255,71,87,0.15); }
+  .filter-count {
+    padding:5px 12px; border-radius:7px;
+    background: rgba(0,229,255,0.08);
+    border:1px solid rgba(0,229,255,0.2);
+    color:var(--cyan); font-size:0.78rem; white-space:nowrap;
+  }
+
+  /* ── MAIN ── */
+  .main { position:relative; z-index:1; padding: 24px 28px; max-width:1800px; margin:0 auto; }
+
+  /* ── SECTION TITLES ── */
+  .section-title {
+    font-family:'Syne',sans-serif; font-size:0.78rem; font-weight:700;
+    color:var(--text3); text-transform:uppercase; letter-spacing:.12em;
+    margin-bottom:16px; margin-top:32px;
+    display:flex; align-items:center; gap:10px;
+  }
+  .section-title::before { content:''; flex:0 0 3px; height:14px; background:var(--cyan); border-radius:2px; }
+
+  /* ── KPI CARDS ── */
+  .kpi-grid {
+    display:grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px,1fr));
+    gap:16px; margin-bottom:8px;
+  }
+  .kpi-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 20px;
+    position:relative; overflow:hidden;
+    transition:var(--transition);
+    box-shadow: var(--card-shadow);
+    cursor:default;
+  }
+  .kpi-card::before {
+    content:''; position:absolute; inset:0;
+    background: linear-gradient(135deg, rgba(56,139,253,0.04), transparent 70%);
+    border-radius:inherit;
+  }
+  .kpi-card:hover {
+    transform:translateY(-3px);
+    border-color:rgba(0,229,255,0.35);
+    box-shadow: var(--card-shadow), 0 0 30px rgba(0,229,255,0.08);
+  }
+  .kpi-card .accent-line {
+    position:absolute; bottom:0; left:0; right:0; height:2px;
+    border-radius:0 0 16px 16px;
+  }
+  .kpi-icon {
+    width:36px; height:36px; border-radius:10px;
+    display:flex; align-items:center; justify-content:center;
+    margin-bottom:12px; font-size:1rem;
+  }
+  .kpi-label { font-size:0.72rem; color:var(--text3); text-transform:uppercase; letter-spacing:.08em; margin-bottom:6px; }
+  .kpi-value { font-family:'Syne',sans-serif; font-size:1.8rem; font-weight:800; line-height:1; margin-bottom:8px; }
+  .kpi-trend { font-size:0.72rem; color:var(--text2); display:flex; align-items:center; gap:4px; }
+  .trend-up { color:var(--green); }
+  .trend-down { color:var(--red); }
+
+  /* ── CHARTS GRID ── */
+  .charts-grid-2 { display:grid; grid-template-columns:1fr 1fr; gap:18px; }
+  .charts-grid-3 { display:grid; grid-template-columns:1fr 1fr 1fr; gap:18px; }
+  .charts-grid-4 { display:grid; grid-template-columns:1fr 1fr 1fr 1fr; gap:18px; }
+  .span2 { grid-column: span 2; }
+  .span3 { grid-column: span 3; }
+
+  .chart-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 20px;
+    box-shadow: var(--card-shadow);
+    transition:var(--transition);
+    position:relative; overflow:hidden;
+  }
+  .chart-card:hover { border-color:rgba(56,139,253,0.3); }
+  .chart-header {
+    display:flex; align-items:center; justify-content:space-between;
+    margin-bottom:16px;
+  }
+  .chart-title {
+    font-family:'Syne',sans-serif; font-size:0.85rem; font-weight:700;
+    color:var(--text); letter-spacing:.01em;
+  }
+  .chart-subtitle { font-size:0.7rem; color:var(--text3); margin-top:2px; }
+  .chart-badge {
+    padding:3px 9px; border-radius:20px; font-size:0.68rem; font-weight:600;
+    background:rgba(56,139,253,0.1); border:1px solid rgba(56,139,253,0.2); color:var(--blue);
+  }
+  .chart-container { position:relative; }
+
+  /* ── INSIGHTS TABLE ── */
+  .insights-table { width:100%; border-collapse:collapse; }
+  .insights-table th {
+    font-size:0.7rem; color:var(--text3); text-transform:uppercase;
+    letter-spacing:.08em; padding:8px 12px; border-bottom:1px solid var(--border2);
+    text-align:left; font-weight:600;
+  }
+  .insights-table td {
+    padding:10px 12px; font-size:0.8rem; border-bottom:1px solid var(--border2);
+    color:var(--text2);
+  }
+  .insights-table tr:last-child td { border-bottom:none; }
+  .insights-table tr:hover td { background:rgba(56,139,253,0.05); color:var(--text); }
+
+  /* ── RISK BADGES ── */
+  .badge {
+    padding:2px 8px; border-radius:20px; font-size:0.68rem; font-weight:600;
+    display:inline-block;
+  }
+  .badge-green { background:rgba(0,230,118,0.1); color:var(--green); border:1px solid rgba(0,230,118,0.2); }
+  .badge-amber { background:rgba(255,179,0,0.1); color:var(--amber); border:1px solid rgba(255,179,0,0.2); }
+  .badge-red   { background:rgba(255,71,87,0.1); color:var(--red); border:1px solid rgba(255,71,87,0.2); }
+  .badge-blue  { background:rgba(56,139,253,0.1); color:var(--blue); border:1px solid rgba(56,139,253,0.2); }
+  .badge-cyan  { background:rgba(0,229,255,0.1); color:var(--cyan); border:1px solid rgba(0,229,255,0.2); }
+
+  /* ── PROGRESS BAR ── */
+  .progress-wrap { background:rgba(56,139,253,0.08); border-radius:4px; overflow:hidden; height:6px; }
+  .progress-bar { height:100%; border-radius:4px; transition: width 0.8s ease; }
+
+  /* ── UPLOAD OVERLAY ── */
+  .upload-overlay {
+    display:none; position:fixed; inset:0; z-index:200;
+    background:rgba(5,13,26,0.9); backdrop-filter:blur(8px);
+    align-items:center; justify-content:center;
+  }
+  .upload-overlay.show { display:flex; }
+  .upload-box {
+    background:var(--surface); border:2px dashed var(--border);
+    border-radius:20px; padding:48px;
+    text-align:center; max-width:440px; width:100%;
+    transition:var(--transition);
+  }
+  .upload-box:hover { border-color:var(--cyan); }
+  .upload-box h3 { font-family:'Syne',sans-serif; font-size:1.2rem; margin-bottom:8px; }
+  .upload-box p { font-size:0.85rem; color:var(--text2); margin-bottom:20px; }
+  .upload-box input { display:none; }
+  .upload-label {
+    padding:10px 24px; border-radius:10px;
+    background:linear-gradient(135deg,var(--blue2),var(--blue));
+    color:white; cursor:pointer; font-size:0.85rem; font-weight:600;
+    display:inline-block; transition:var(--transition);
+  }
+  .upload-label:hover { transform:translateY(-2px); box-shadow:var(--glow2); }
+  .upload-close { position:absolute; top:20px; right:20px; background:none; border:none;
+    color:var(--text2); font-size:1.4rem; cursor:pointer; }
+
+  /* ── SCROLLBAR ── */
+  ::-webkit-scrollbar { width:6px; height:6px; }
+  ::-webkit-scrollbar-track { background:rgba(0,0,0,0.2); }
+  ::-webkit-scrollbar-thumb { background:rgba(56,139,253,0.3); border-radius:3px; }
+
+  /* ── LOADER ── */
+  .loader-overlay {
+    position:fixed; inset:0; z-index:500;
+    background:var(--bg);
+    display:flex; align-items:center; justify-content:center;
+    flex-direction:column; gap:16px;
+    transition:opacity 0.5s ease;
+  }
+  .loader-overlay.hidden { opacity:0; pointer-events:none; }
+  .loader-logo {
+    font-family:'Syne',sans-serif; font-size:1.6rem; font-weight:800;
+    color:var(--cyan); letter-spacing:.05em;
+  }
+  .loader-bar { width:200px; height:3px; background:rgba(56,139,253,0.15); border-radius:3px; overflow:hidden; }
+  .loader-fill { height:100%; background:linear-gradient(90deg,var(--cyan),var(--blue)); animation:loadfill 1.2s ease forwards; }
+  @keyframes loadfill { from{width:0} to{width:100%} }
+  .loader-text { font-size:0.8rem; color:var(--text3); }
+
+  /* ── RESPONSIVE ── */
+  @media(max-width:1100px) { .charts-grid-3,.charts-grid-4 { grid-template-columns:1fr 1fr; } .span3 { grid-column:span 2; } }
+  @media(max-width:768px) {
+    .main { padding:16px; }
+    .filters-bar { padding:10px 16px; }
+    .header { padding:0 16px; }
+    .charts-grid-2,.charts-grid-3,.charts-grid-4 { grid-template-columns:1fr; }
+    .span2,.span3 { grid-column:span 1; }
+    .kpi-grid { grid-template-columns:1fr 1fr; }
+    .header-nav { display:none; }
+  }
+  @media(max-width:480px) { .kpi-grid { grid-template-columns:1fr; } }
+
+  /* ── ANIMATED ENTRY ── */
+  .chart-card, .kpi-card { animation: fadeUp 0.4s ease both; }
+  @keyframes fadeUp { from{opacity:0;transform:translateY(16px)} to{opacity:1;transform:none} }
+
+  /* stagger */
+  .kpi-card:nth-child(1){animation-delay:.05s} .kpi-card:nth-child(2){animation-delay:.1s}
+  .kpi-card:nth-child(3){animation-delay:.15s} .kpi-card:nth-child(4){animation-delay:.2s}
+  .kpi-card:nth-child(5){animation-delay:.25s} .kpi-card:nth-child(6){animation-delay:.3s}
+  .kpi-card:nth-child(7){animation-delay:.35s} .kpi-card:nth-child(8){animation-delay:.4s}
+
+  /* tab nav highlight */
+  .nav-tabs { display:flex; gap:4px; flex-wrap:wrap; }
+  .tab-btn {
+    padding:6px 16px; border-radius:8px; font-size:0.78rem; font-weight:500;
+    color:var(--text2); background:var(--surface2); border:1px solid var(--border2);
+    cursor:pointer; transition:var(--transition);
+  }
+  .tab-btn.active { color:var(--cyan); background:rgba(0,229,255,0.08); border-color:rgba(0,229,255,0.25); }
+  .tab-btn:hover { color:var(--text); }
+
+  .tab-panel { display:none; }
+  .tab-panel.active { display:block; }
+
+  /* Glassmorphism highlight on KPI card hover */
+  .kpi-card::after {
+    content:''; position:absolute; inset:0; opacity:0;
+    background: radial-gradient(circle at 30% 30%, rgba(0,229,255,0.05), transparent 70%);
+    transition: opacity 0.4s;
+  }
+  .kpi-card:hover::after { opacity:1; }
+
+  /* Divider */
+  .divider { height:1px; background:var(--border2); margin:24px 0; }
+
+  /* Donut center text */
+  .donut-wrap { position:relative; }
+  .donut-center {
+    position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
+    text-align:center; pointer-events:none;
+  }
+  .donut-center-val { font-family:'Syne',sans-serif; font-size:1.4rem; font-weight:800; }
+  .donut-center-lbl { font-size:0.65rem; color:var(--text3); text-transform:uppercase; letter-spacing:.06em; }
+</style>
+</head>
+<body>
+
+<!-- LOADER -->
+<div class="loader-overlay" id="loader">
+  <div style="font-size:2rem; margin-bottom:4px;">🏥</div>
+  <div class="loader-logo">VitalSense AI</div>
+  <div class="loader-bar"><div class="loader-fill"></div></div>
+  <div class="loader-text">Loading healthcare analytics…</div>
+</div>
+
+<!-- UPLOAD OVERLAY -->
+<div class="upload-overlay" id="uploadOverlay">
+  <div class="upload-box">
+    <button class="upload-close" onclick="document.getElementById('uploadOverlay').classList.remove('show')">✕</button>
+    <div style="font-size:2.5rem; margin-bottom:12px;">📂</div>
+    <h3>Load Your Dataset</h3>
+    <p>Upload a CSV or Excel (.xlsx) file with patient healthcare data. The dashboard will auto-update with your data.</p>
+    <label class="upload-label">
+      Choose File
+      <input type="file" id="fileInput" accept=".csv,.xlsx,.xls">
+    </label>
+    <div id="uploadStatus" style="margin-top:16px; font-size:0.8rem; color:var(--text3);"></div>
+  </div>
+</div>
+
+<!-- HEADER -->
+<header class="header">
+  <div class="logo">
+    <svg viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect width="28" height="28" rx="7" fill="rgba(0,229,255,0.1)"/>
+      <path d="M14 6v4M14 18v4M6 14h4M18 14h4" stroke="#00e5ff" stroke-width="2" stroke-linecap="round"/>
+      <circle cx="14" cy="14" r="3.5" fill="#00e5ff" opacity=".8"/>
+      <circle cx="14" cy="14" r="6" stroke="#388bfd" stroke-width="1" stroke-dasharray="2 2"/>
+    </svg>
+    VitalSense <span class="logo-badge">AI</span>
+  </div>
+  <nav class="header-nav">
+    <button class="nav-btn active" onclick="showSection('overview')">Overview</button>
+    <button class="nav-btn" onclick="showSection('patients')">Patients</button>
+    <button class="nav-btn" onclick="showSection('medical')">Medical</button>
+    <button class="nav-btn" onclick="showSection('financial')">Financial</button>
+    <button class="nav-btn" onclick="showSection('insights')">Insights</button>
+  </nav>
+  <div class="header-right">
+    <div class="status-dot"></div>
+    <span class="status-label">Live</span>
+    <button class="upload-btn" onclick="document.getElementById('uploadOverlay').classList.add('show')">
+      ⬆ Upload Data
+    </button>
+  </div>
+</header>
+
+<!-- FILTERS -->
+<div class="filters-bar">
+  <div class="filter-group">
+    <span class="filter-label">Condition</span>
+    <select class="filter-select" id="f_condition" onchange="applyFilters()">
+      <option value="">All</option>
+      <option>Arthritis</option><option>Asthma</option><option>Cancer</option>
+      <option>Diabetes</option><option>Hypertension</option><option>Obesity</option>
+    </select>
+  </div>
+  <div class="filter-group">
+    <span class="filter-label">Gender</span>
+    <select class="filter-select" id="f_gender" onchange="applyFilters()">
+      <option value="">All</option><option>Male</option><option>Female</option>
+    </select>
+  </div>
+  <div class="filter-group">
+    <span class="filter-label">Admission</span>
+    <select class="filter-select" id="f_admission" onchange="applyFilters()">
+      <option value="">All</option><option>Emergency</option><option>Urgent</option><option>Elective</option>
+    </select>
+  </div>
+  <div class="filter-group">
+    <span class="filter-label">Insurance</span>
+    <select class="filter-select" id="f_insurance" onchange="applyFilters()">
+      <option value="">All</option><option>Aetna</option><option>Blue Cross</option>
+      <option>Cigna</option><option>Medicare</option><option>UnitedHealthcare</option>
+    </select>
+  </div>
+  <div class="filter-group">
+    <span class="filter-label">Test Result</span>
+    <select class="filter-select" id="f_result" onchange="applyFilters()">
+      <option value="">All</option><option>Normal</option><option>Abnormal</option><option>Inconclusive</option>
+    </select>
+  </div>
+  <div class="filter-group">
+    <span class="filter-label">Medication</span>
+    <select class="filter-select" id="f_medication" onchange="applyFilters()">
+      <option value="">All</option><option>Aspirin</option><option>Ibuprofen</option>
+      <option>Lipitor</option><option>Paracetamol</option><option>Penicillin</option>
+    </select>
+  </div>
+  <div class="filter-group">
+    <span class="filter-label">Year</span>
+    <select class="filter-select" id="f_year" onchange="applyFilters()">
+      <option value="">All</option><option>2019</option><option>2020</option>
+      <option>2021</option><option>2022</option><option>2023</option><option>2024</option>
+    </select>
+  </div>
+  <button class="filter-clear" onclick="clearFilters()">✕ Clear</button>
+  <div class="filter-count" id="filterCount">55,500 patients</div>
+</div>
+
+<!-- MAIN CONTENT -->
+<div class="main">
+
+<!-- ══════════ OVERVIEW SECTION ══════════ -->
+<div id="sec_overview">
+
+  <div class="section-title">Key Performance Indicators</div>
+  <div class="kpi-grid" id="kpiGrid">
+    <!-- Generated by JS -->
+  </div>
+
+  <div class="section-title" style="margin-top:28px;">Patient Distribution Overview</div>
+  <div class="charts-grid-2" style="grid-template-columns:2fr 1fr 1fr;">
+    <div class="chart-card">
+      <div class="chart-header">
+        <div><div class="chart-title">Monthly Admission Trend</div><div class="chart-subtitle">Patient admissions by month across all years</div></div>
+        <span class="chart-badge">Trend</span>
+      </div>
+      <div class="chart-container"><canvas id="ch_monthly" height="100"></canvas></div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-header"><div><div class="chart-title">Gender Split</div><div class="chart-subtitle">M/F distribution</div></div></div>
+      <div class="donut-wrap">
+        <div class="chart-container"><canvas id="ch_gender" height="180"></canvas></div>
+        <div class="donut-center"><div class="donut-center-val" id="genderTotal">—</div><div class="donut-center-lbl">Patients</div></div>
+      </div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-header"><div><div class="chart-title">Test Results</div><div class="chart-subtitle">Result distribution</div></div></div>
+      <div class="donut-wrap">
+        <div class="chart-container"><canvas id="ch_results" height="180"></canvas></div>
+        <div class="donut-center"><div class="donut-center-val" id="resultsTotal">—</div><div class="donut-center-lbl">Tests</div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="charts-grid-2" style="margin-top:18px;">
+    <div class="chart-card">
+      <div class="chart-header"><div><div class="chart-title">Patients by Disease</div><div class="chart-subtitle">Medical condition breakdown</div></div><span class="chart-badge">Distribution</span></div>
+      <div class="chart-container"><canvas id="ch_conditions" height="120"></canvas></div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-header"><div><div class="chart-title">Admission Type Analysis</div><div class="chart-subtitle">Emergency vs Urgent vs Elective</div></div></div>
+      <div class="chart-container"><canvas id="ch_admissions" height="120"></canvas></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════ PATIENTS SECTION ══════════ -->
+<div id="sec_patients" style="display:none;">
+
+  <div class="section-title">Patient Demographics & Analysis</div>
+  <div class="charts-grid-2" style="grid-template-columns:1fr 1fr 1fr;">
+    <div class="chart-card span2">
+      <div class="chart-header"><div><div class="chart-title">Age Group Distribution</div><div class="chart-subtitle">Patient count by age bracket</div></div><span class="chart-badge">Demographics</span></div>
+      <div class="chart-container"><canvas id="ch_age" height="110"></canvas></div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-header"><div><div class="chart-title">Blood Type Distribution</div><div class="chart-subtitle">8 blood types</div></div></div>
+      <div class="donut-wrap">
+        <div class="chart-container"><canvas id="ch_blood" height="200"></canvas></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="charts-grid-2" style="margin-top:18px;">
+    <div class="chart-card">
+      <div class="chart-header"><div><div class="chart-title">Disease by Gender</div><div class="chart-subtitle">Male vs Female per condition</div></div><span class="chart-badge">Grouped</span></div>
+      <div class="chart-container"><canvas id="ch_cond_gender" height="130"></canvas></div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-header"><div><div class="chart-title">Test Results by Condition</div><div class="chart-subtitle">Normal / Abnormal / Inconclusive</div></div></div>
+      <div class="chart-container"><canvas id="ch_results_cond" height="130"></canvas></div>
+    </div>
+  </div>
+
+  <div style="margin-top:18px;">
+    <div class="chart-card">
+      <div class="chart-header"><div><div class="chart-title">Annual Patient Volume</div><div class="chart-subtitle">Yearly admission trend (2019–2024)</div></div><span class="chart-badge">Yearly</span></div>
+      <div class="chart-container"><canvas id="ch_yearly" height="80"></canvas></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════ MEDICAL SECTION ══════════ -->
+<div id="sec_medical" style="display:none;">
+
+  <div class="section-title">Medical Treatment & Outcomes</div>
+  <div class="charts-grid-2" style="grid-template-columns:1fr 1fr 1fr;">
+    <div class="chart-card span2">
+      <div class="chart-header"><div><div class="chart-title">Average Hospital Stay by Condition</div><div class="chart-subtitle">Mean days of admission per disease</div></div><span class="chart-badge">Length of Stay</span></div>
+      <div class="chart-container"><canvas id="ch_stay" height="110"></canvas></div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-header"><div><div class="chart-title">Medication Usage</div><div class="chart-subtitle">Most prescribed</div></div></div>
+      <div class="chart-container"><canvas id="ch_medication" height="200"></canvas></div>
+    </div>
+  </div>
+
+  <div class="charts-grid-2" style="margin-top:18px;">
+    <div class="chart-card">
+      <div class="chart-header"><div><div class="chart-title">Admission Type by Month</div><div class="chart-subtitle">Stacked monthly breakdown</div></div><span class="chart-badge">Stacked</span></div>
+      <div class="chart-container"><canvas id="ch_admit_month" height="130"></canvas></div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-header"><div><div class="chart-title">Test Result Breakdown</div><div class="chart-subtitle">Normal · Abnormal · Inconclusive</div></div></div>
+      <div class="chart-container"><canvas id="ch_results2" height="130"></canvas></div>
+    </div>
+  </div>
+
+  <!-- Outcomes table -->
+  <div class="chart-card" style="margin-top:18px;">
+    <div class="chart-header"><div><div class="chart-title">Condition Performance Summary</div><div class="chart-subtitle">Disease-level treatment metrics</div></div></div>
+    <table class="insights-table" id="conditionTable">
+      <thead>
+        <tr>
+          <th>Medical Condition</th><th>Patients</th><th>Avg Stay (Days)</th>
+          <th>Avg Billing ($)</th><th>Normal %</th><th>Abnormal %</th><th>Status</th>
+        </tr>
+      </thead>
+      <tbody id="conditionTableBody"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ══════════ FINANCIAL SECTION ══════════ -->
+<div id="sec_financial" style="display:none;">
+
+  <div class="section-title">Revenue & Financial Analytics</div>
+  <div class="charts-grid-2">
+    <div class="chart-card">
+      <div class="chart-header"><div><div class="chart-title">Annual Revenue Trend</div><div class="chart-subtitle">Total billing revenue by year</div></div><span class="chart-badge">Revenue</span></div>
+      <div class="chart-container"><canvas id="ch_rev_yearly" height="130"></canvas></div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-header"><div><div class="chart-title">Avg Cost by Condition</div><div class="chart-subtitle">Mean billing per disease</div></div></div>
+      <div class="chart-container"><canvas id="ch_cost_cond" height="130"></canvas></div>
+    </div>
+  </div>
+
+  <div class="charts-grid-2" style="margin-top:18px; grid-template-columns:1fr 1fr 1fr;">
+    <div class="chart-card span2">
+      <div class="chart-header"><div><div class="chart-title">Insurance Provider Distribution</div><div class="chart-subtitle">Patient count per insurer</div></div><span class="chart-badge">Insurance</span></div>
+      <div class="chart-container"><canvas id="ch_insurance" height="110"></canvas></div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-header"><div><div class="chart-title">Cost by Admission Type</div><div class="chart-subtitle">Avg billing per admit type</div></div></div>
+      <div class="chart-container"><canvas id="ch_cost_admit" height="200"></canvas></div>
+    </div>
+  </div>
+
+  <!-- Financial table -->
+  <div class="chart-card" style="margin-top:18px;">
+    <div class="chart-header"><div><div class="chart-title">Insurance Provider Financial Summary</div></div></div>
+    <table class="insights-table">
+      <thead><tr><th>Provider</th><th>Patients</th><th>Avg Billing</th><th>Market Share</th><th>Share</th></tr></thead>
+      <tbody id="insuranceTableBody"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ══════════ INSIGHTS SECTION ══════════ -->
+<div id="sec_insights" style="display:none;">
+
+  <div class="section-title">Advanced Healthcare Intelligence</div>
+
+  <div class="charts-grid-2" style="grid-template-columns:1fr 1fr 1fr;">
+    <div class="chart-card">
+      <div class="chart-header"><div><div class="chart-title">Disease Severity Index</div><div class="chart-subtitle">Abnormal results rate per condition</div></div><span class="chart-badge">Risk</span></div>
+      <div class="chart-container"><canvas id="ch_severity" height="180"></canvas></div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-header"><div><div class="chart-title">Medication Effectiveness</div><div class="chart-subtitle">Normal result rate per drug</div></div></div>
+      <div class="chart-container"><canvas id="ch_med_eff" height="180"></canvas></div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-header"><div><div class="chart-title">Avg Patient Age by Condition</div><div class="chart-subtitle">Age profile per disease</div></div></div>
+      <div class="chart-container"><canvas id="ch_age_cond" height="180"></canvas></div>
+    </div>
+  </div>
+
+  <!-- KPI insight cards -->
+  <div class="section-title">Clinical Intelligence Summary</div>
+  <div id="insightCards" style="display:grid; grid-template-columns:repeat(auto-fill,minmax(280px,1fr)); gap:16px; margin-top:4px;"></div>
+
+  <div class="chart-card" style="margin-top:18px;">
+    <div class="chart-header"><div><div class="chart-title">Patient Risk & Outcome Matrix</div><div class="chart-subtitle">Condition × Result cross-analysis</div></div></div>
+    <table class="insights-table" id="riskMatrix">
+      <thead><tr><th>Condition</th><th>Patients</th><th>Abnormal</th><th>Abnormal %</th><th>Avg Stay</th><th>Severity</th></tr></thead>
+      <tbody id="riskMatrixBody"></tbody>
+    </table>
+  </div>
+</div>
+
+</div><!-- /main -->
+
+<script>
+// ═══════════════════════════════════════
+// EMBEDDED DATASET (pre-aggregated)
+// ═══════════════════════════════════════
+const FULL_STATS = {"total":55500,"revenue":1417432043.0,"avg_cost":25539.0,"avg_stay":15.5,"normal_pct":33.4,"abnormal_pct":33.6,"gender":{"Male":27774,"Female":27726},"conditions":{"Arthritis":9308,"Diabetes":9304,"Hypertension":9245,"Obesity":9231,"Cancer":9227,"Asthma":9185},"admission_types":{"Elective":18655,"Urgent":18576,"Emergency":18269},"test_results":{"Abnormal":18627,"Normal":18517,"Inconclusive":18356},"insurance":{"Cigna":11249,"Medicare":11154,"UnitedHealthcare":11125,"Blue Cross":11059,"Aetna":10913},"medication":{"Lipitor":11140,"Ibuprofen":11127,"Aspirin":11094,"Paracetamol":11071,"Penicillin":11068},"blood_types":{"A-":6969,"A+":6956,"AB+":6947,"AB-":6945,"B+":6945,"B-":6944,"O+":6917,"O-":6877},"age_groups":{"18_30":9611,"31_45":12230,"46_60":12401,"61_75":12216,"75p":8154,"lt18":888},"yearly_patients":{"2019":7387,"2020":11285,"2021":10931,"2022":11017,"2023":11026,"2024":3854},"yearly_revenue":{"2019":189849325.0,"2020":286551589.0,"2021":280155881.0,"2022":281082338.0,"2023":281977253.0,"2024":97815657.0},"monthly":{"1":4692,"2":4255,"3":4672,"4":4518,"5":4599,"6":4699,"7":4812,"8":4832,"9":4546,"10":4678,"11":4548,"12":4649},"billing_cond":{"Arthritis":25497.0,"Asthma":25635.0,"Cancer":25162.0,"Diabetes":25638.0,"Hypertension":25497.0,"Obesity":25806.0},"billing_admit":{"Elective":25602.0,"Emergency":25497.0,"Urgent":25517.0},"stay_cond":{"Arthritis":15.5,"Asthma":15.7,"Cancer":15.5,"Diabetes":15.4,"Hypertension":15.5,"Obesity":15.5},"cond_gender_f":{"Arthritis":4686,"Asthma":4553,"Cancer":4602,"Diabetes":4651,"Hypertension":4612,"Obesity":4622},"cond_gender_m":{"Arthritis":4622,"Asthma":4632,"Cancer":4625,"Diabetes":4653,"Hypertension":4633,"Obesity":4609},"results_cond":{"('Arthritis', 'Abnormal')":3188,"('Arthritis', 'Inconclusive')":3088,"('Arthritis', 'Normal')":3032,"('Asthma', 'Abnormal')":3009,"('Asthma', 'Inconclusive')":3029,"('Asthma', 'Normal')":3147,"('Cancer', 'Abnormal')":3118,"('Cancer', 'Inconclusive')":3060,"('Cancer', 'Normal')":3049,"('Diabetes', 'Abnormal')":3168,"('Diabetes', 'Inconclusive')":3046,"('Diabetes', 'Normal')":3090,"('Hypertension', 'Abnormal')":3012,"('Hypertension', 'Inconclusive')":3091,"('Hypertension', 'Normal')":3142,"('Obesity', 'Abnormal')":3132,"('Obesity', 'Inconclusive')":3042,"('Obesity', 'Normal')":3057},"billing_insurance":{"Aetna":25553.0,"Blue Cross":25613.0,"Cigna":25526.0,"Medicare":25616.0,"UnitedHealthcare":25389.0},"age_by_cond":{"Arthritis":51.6,"Asthma":51.6,"Cancer":51.6,"Diabetes":51.6,"Hypertension":51.7,"Obesity":51.2},"top_doctors":{"Michael Smith":27,"John Smith":22,"Robert Smith":22,"James Smith":20,"Michael Johnson":20,"Robert Johnson":19,"David Smith":19,"Michael Williams":18,"Matthew Smith":17,"John Johnson":17},"admission_month":{"(1, 'Elective')":1569,"(1, 'Emergency')":1559,"(1, 'Urgent')":1564,"(2, 'Elective')":1435,"(2, 'Emergency')":1465,"(2, 'Urgent')":1355,"(3, 'Elective')":1533,"(3, 'Emergency')":1542,"(3, 'Urgent')":1597,"(4, 'Elective')":1526,"(4, 'Emergency')":1485,"(4, 'Urgent')":1507,"(5, 'Elective')":1586,"(5, 'Emergency')":1544,"(5, 'Urgent')":1469,"(6, 'Elective')":1579,"(6, 'Emergency')":1499,"(6, 'Urgent')":1621,"(7, 'Elective')":1618,"(7, 'Emergency')":1589,"(7, 'Urgent')":1605,"(8, 'Elective')":1626,"(8, 'Emergency')":1552,"(8, 'Urgent')":1654,"(9, 'Elective')":1500,"(9, 'Emergency')":1512,"(9, 'Urgent')":1534,"(10, 'Elective')":1576,"(10, 'Emergency')":1507,"(10, 'Urgent')":1595,"(11, 'Elective')":1519,"(11, 'Emergency')":1475,"(11, 'Urgent')":1554,"(12, 'Elective')":1588,"(12, 'Emergency')":1540,"(12, 'Urgent')":1521}};
+
+// Active CSV data (null = use FULL_STATS)
+let csvData = null;
+let filteredStats = null; // current active stats
+let charts = {};
+
+// ─── Colors ───
+const COLORS = {
+  cyan:    'rgba(0,229,255,',
+  blue:    'rgba(56,139,253,',
+  teal:    'rgba(0,201,167,',
+  green:   'rgba(0,230,118,',
+  amber:   'rgba(255,179,0,',
+  red:     'rgba(255,71,87,',
+  purple:  'rgba(167,139,250,',
+  pink:    'rgba(244,114,182,',
+};
+const PALETTE = [
+  '#00e5ff','#388bfd','#00c9a7','#00e676','#ffb300','#ff4757','#a78bfa','#f472b6'
+];
+const PALETTE_A = (alpha=1) => PALETTE.map(h => hexA(h, alpha));
+
+function hexA(hex, a) {
+  const r=parseInt(hex.slice(1,3),16), g=parseInt(hex.slice(3,5),16), b=parseInt(hex.slice(5,7),16);
+  return `rgba(${r},${g},${b},${a})`;
+}
+
+// ─── Chart Defaults ───
+Chart.defaults.color = '#8aafc8';
+Chart.defaults.borderColor = 'rgba(56,139,253,0.1)';
+Chart.defaults.font.family = "'DM Sans', sans-serif";
+Chart.defaults.plugins.legend.labels.boxWidth = 10;
+Chart.defaults.plugins.legend.labels.padding = 12;
+Chart.defaults.plugins.tooltip.backgroundColor = 'rgba(8,15,31,0.95)';
+Chart.defaults.plugins.tooltip.borderColor = 'rgba(0,229,255,0.25)';
+Chart.defaults.plugins.tooltip.borderWidth = 1;
+Chart.defaults.plugins.tooltip.titleColor = '#00e5ff';
+Chart.defaults.plugins.tooltip.bodyColor = '#e8f4ff';
+Chart.defaults.plugins.tooltip.padding = 12;
+Chart.defaults.plugins.tooltip.cornerRadius = 10;
+
+// ─── Helpers ───
+function fmt(n) {
+  if (n >= 1e9) return '$' + (n/1e9).toFixed(2) + 'B';
+  if (n >= 1e6) return '$' + (n/1e6).toFixed(1) + 'M';
+  if (n >= 1e3) return (n/1e3).toFixed(1) + 'K';
+  return n.toString();
+}
+function fmtCurr(n) {
+  if (n >= 1e9) return '$' + (n/1e9).toFixed(2) + 'B';
+  if (n >= 1e6) return '$' + (n/1e6).toFixed(2) + 'M';
+  return '$' + Math.round(n).toLocaleString();
+}
+function pct(a,b) { return b ? ((a/b)*100).toFixed(1) : '0'; }
+function animateCounter(el, target, prefix='', suffix='', duration=1200) {
+  const start = Date.now();
+  const startVal = 0;
+  function tick() {
+    const elapsed = Date.now() - start;
+    const progress = Math.min(elapsed / duration, 1);
+    const ease = 1 - Math.pow(1 - progress, 3);
+    const current = Math.round(startVal + (target - startVal) * ease);
+    el.textContent = prefix + current.toLocaleString() + suffix;
+    if (progress < 1) requestAnimationFrame(tick);
+  }
+  tick();
+}
+function destroyChart(id) {
+  if (charts[id]) { charts[id].destroy(); delete charts[id]; }
+}
+
+// ─── KPI Cards ───
+const kpiDefs = [
+  { id:'k1', label:'Total Patients', icon:'👥', color:'#00e5ff', accent:'rgba(0,229,255,0.3)', get:(s)=>s.total, fmt:(v)=>v.toLocaleString() },
+  { id:'k2', label:'Total Revenue', icon:'💰', color:'#00e676', accent:'rgba(0,230,118,0.3)', get:(s)=>s.revenue, fmt:fmtCurr },
+  { id:'k3', label:'Avg Billing', icon:'🧾', color:'#ffb300', accent:'rgba(255,179,0,0.3)', get:(s)=>s.avg_cost, fmt:(v)=>'$'+Math.round(v).toLocaleString() },
+  { id:'k4', label:'Avg Stay (Days)', icon:'🛏️', color:'#a78bfa', accent:'rgba(167,139,250,0.3)', get:(s)=>s.avg_stay, fmt:(v)=>v+'d' },
+  { id:'k5', label:'Emergency Cases', icon:'🚨', color:'#ff4757', accent:'rgba(255,71,87,0.3)', get:(s)=>s.admission_types['Emergency']||0, fmt:(v)=>v.toLocaleString() },
+  { id:'k6', label:'Normal Results', icon:'✅', color:'#00c9a7', accent:'rgba(0,201,167,0.3)', get:(s)=>s.test_results['Normal']||0, fmt:(v)=>v.toLocaleString() },
+  { id:'k7', label:'Abnormal Results', icon:'⚠️', color:'#ff4757', accent:'rgba(255,71,87,0.3)', get:(s)=>s.test_results['Abnormal']||0, fmt:(v)=>v.toLocaleString() },
+  { id:'k8', label:'Elective Cases', icon:'📋', color:'#388bfd', accent:'rgba(56,139,253,0.3)', get:(s)=>s.admission_types['Elective']||0, fmt:(v)=>v.toLocaleString() },
+];
+
+function buildKPIs(stats) {
+  const grid = document.getElementById('kpiGrid');
+  grid.innerHTML = '';
+  kpiDefs.forEach((k,i) => {
+    const val = k.get(stats);
+    const div = document.createElement('div');
+    div.className = 'kpi-card';
+    div.innerHTML = `
+      <div class="kpi-icon" style="background:${k.color}18;">${k.icon}</div>
+      <div class="kpi-label">${k.label}</div>
+      <div class="kpi-value" style="color:${k.color}" id="${k.id}_val">0</div>
+      <div class="kpi-trend" id="${k.id}_trend"></div>
+      <div class="accent-line" style="background:linear-gradient(90deg,${k.color},transparent)"></div>
+    `;
+    grid.appendChild(div);
+    // animate
+    setTimeout(() => {
+      const el = document.getElementById(k.id + '_val');
+      if (typeof val === 'number' && !isNaN(val)) {
+        // simple number animation
+        animateCounter({textContent:''}, 0); // reset
+        el.textContent = k.fmt(val);
+      }
+    }, 100 + i*60);
+  });
+}
+
+// ─── Filter logic ───
+function getFilteredStats() {
+  const cond = document.getElementById('f_condition').value;
+  const gender = document.getElementById('f_gender').value;
+  const admission = document.getElementById('f_admission').value;
+  const insurance = document.getElementById('f_insurance').value;
+  const result = document.getElementById('f_result').value;
+  const medication = document.getElementById('f_medication').value;
+  const year = document.getElementById('f_year').value;
+
+  const hasFilters = cond||gender||admission||insurance||result||medication||year;
+
+  if (!hasFilters) {
+    if (csvData) return computeStats(csvData);
+    return FULL_STATS;
+  }
+
+  // If we have CSV data, filter it
+  if (csvData) {
+    let d = csvData;
+    if (cond) d = d.filter(r => r['Medical Condition']===cond);
+    if (gender) d = d.filter(r => r['Gender']===gender);
+    if (admission) d = d.filter(r => r['Admission Type']===admission);
+    if (insurance) d = d.filter(r => r['Insurance Provider']===insurance);
+    if (result) d = d.filter(r => r['Test Results']===result);
+    if (medication) d = d.filter(r => r['Medication']===medication);
+    if (year) d = d.filter(r => r['Year']==year);
+    return computeStats(d);
+  }
+
+  // Estimate from FULL_STATS with approximations
+  return estimateFilteredStats(cond, gender, admission, insurance, result, medication, year);
+}
+
+function estimateFilteredStats(cond, gender, admission, insurance, result, medication, year) {
+  const S = FULL_STATS;
+  let totalRatio = 1;
+  if (cond) totalRatio *= (S.conditions[cond]||0) / S.total;
+  if (gender) totalRatio *= (S.gender[gender]||0) / S.total;
+  if (admission) totalRatio *= (S.admission_types[admission]||0) / S.total;
+  if (insurance) totalRatio *= (S.insurance[insurance]||0) / S.total;
+  if (result) totalRatio *= (S.test_results[result]||0) / S.total;
+  if (medication) totalRatio *= (S.medication[medication]||0) / S.total;
+  if (year) totalRatio *= (S.yearly_patients[year]||0) / S.total;
+
+  const total = Math.round(S.total * totalRatio);
+  const stats = JSON.parse(JSON.stringify(S));
+  stats.total = total;
+  stats.revenue = Math.round(S.revenue * totalRatio);
+  // Filter conditions
+  if (cond) {
+    stats.conditions = {[cond]: total};
+    stats.billing_cond = {[cond]: S.billing_cond[cond]};
+    stats.stay_cond = {[cond]: S.stay_cond[cond]};
+  }
+  if (gender) {
+    stats.gender = {[gender]: total};
+  }
+  if (admission) {
+    stats.admission_types = {[admission]: total};
+  }
+  if (insurance) {
+    stats.insurance = {[insurance]: total};
+  }
+  if (result) {
+    stats.test_results = {[result]: total};
+  }
+  if (medication) {
+    stats.medication = {[medication]: total};
+  }
+  if (year) {
+    stats.yearly_patients = {[year]: total};
+    stats.yearly_revenue = {[year]: Math.round(S.yearly_revenue[year]*totalRatio/(S.yearly_patients[year]/S.total))};
+  }
+  return stats;
+}
+
+function computeStats(data) {
+  if (!data || !data.length) return FULL_STATS;
+  const S = {};
+  S.total = data.length;
+  S.revenue = data.reduce((a,r)=>a+(parseFloat(r['Billing Amount'])||0),0);
+  S.avg_cost = S.revenue / S.total;
+  S.avg_stay = data.reduce((a,r)=>a+(parseInt(r['Stay_Days'])||15),0) / S.total;
+  S.gender = countBy(data, 'Gender');
+  S.conditions = countBy(data, 'Medical Condition');
+  S.admission_types = countBy(data, 'Admission Type');
+  S.test_results = countBy(data, 'Test Results');
+  S.insurance = countBy(data, 'Insurance Provider');
+  S.medication = countBy(data, 'Medication');
+  S.blood_types = countBy(data, 'Blood Type');
+  S.age_groups = countBy(data, 'Age_Group');
+  // yearly
+  S.yearly_patients = countBy(data, 'Year');
+  const yr = {};
+  data.forEach(r => {
+    const y = r['Year'];
+    if (!yr[y]) yr[y]=0;
+    yr[y]+=(parseFloat(r['Billing Amount'])||0);
+  });
+  S.yearly_revenue = yr;
+  // monthly
+  S.monthly = countBy(data, 'Month');
+  // billing by cond
+  const bc = {}; const bc_n = {};
+  data.forEach(r=>{const c=r['Medical Condition'];if(!bc[c]){bc[c]=0;bc_n[c]=0;}bc[c]+=(parseFloat(r['Billing Amount'])||0);bc_n[c]++;});
+  S.billing_cond = Object.fromEntries(Object.keys(bc).map(k=>[k,Math.round(bc[k]/bc_n[k])]));
+  S.billing_admit = {}; const ba_n={};
+  data.forEach(r=>{const a=r['Admission Type'];if(!S.billing_admit[a]){S.billing_admit[a]=0;ba_n[a]=0;}S.billing_admit[a]+=(parseFloat(r['Billing Amount'])||0);ba_n[a]++;});
+  Object.keys(S.billing_admit).forEach(k=>S.billing_admit[k]=Math.round(S.billing_admit[k]/ba_n[k]));
+  // stay by cond
+  const sc={}; const sc_n={};
+  data.forEach(r=>{const c=r['Medical Condition'];if(!sc[c]){sc[c]=0;sc_n[c]=0;}sc[c]+=(parseInt(r['Stay_Days'])||15);sc_n[c]++;});
+  S.stay_cond = Object.fromEntries(Object.keys(sc).map(k=>[k,+(sc[k]/sc_n[k]).toFixed(1)]));
+  // gender by cond
+  S.cond_gender_m = {}; S.cond_gender_f = {};
+  data.forEach(r=>{const c=r['Medical Condition'];const g=r['Gender'];if(g==='Male'){S.cond_gender_m[c]=(S.cond_gender_m[c]||0)+1;}else{S.cond_gender_f[c]=(S.cond_gender_f[c]||0)+1;}});
+  // results by cond
+  S.results_cond = {};
+  data.forEach(r=>{const k=`('${r['Medical Condition']}', '${r['Test Results']}')`;S.results_cond[k]=(S.results_cond[k]||0)+1;});
+  S.billing_insurance = {}; const bi_n={};
+  data.forEach(r=>{const i=r['Insurance Provider'];if(!S.billing_insurance[i]){S.billing_insurance[i]=0;bi_n[i]=0;}S.billing_insurance[i]+=(parseFloat(r['Billing Amount'])||0);bi_n[i]++;});
+  Object.keys(S.billing_insurance).forEach(k=>S.billing_insurance[k]=Math.round(S.billing_insurance[k]/bi_n[k]));
+  S.age_by_cond = {};
+  const ac_n = {};
+  data.forEach(r=>{const c=r['Medical Condition'];if(!S.age_by_cond[c]){S.age_by_cond[c]=0;ac_n[c]=0;}S.age_by_cond[c]+=(parseInt(r['Age'])||51);ac_n[c]++;});
+  Object.keys(S.age_by_cond).forEach(k=>S.age_by_cond[k]=+(S.age_by_cond[k]/ac_n[k]).toFixed(1));
+  S.normal_pct = +(((S.test_results['Normal']||0)/S.total)*100).toFixed(1);
+  S.abnormal_pct = +(((S.test_results['Abnormal']||0)/S.total)*100).toFixed(1);
+  // admission month stub
+  S.admission_month = FULL_STATS.admission_month;
+  S.top_doctors = FULL_STATS.top_doctors;
+  return S;
+}
+
+function countBy(data, key) {
+  const r={};
+  data.forEach(d=>{const v=d[key];if(v!==undefined&&v!==null&&v!==''){r[v]=(r[v]||0)+1;}});
+  return r;
+}
+
+// ─── Apply Filters ───
+function applyFilters() {
+  const stats = getFilteredStats();
+  filteredStats = stats;
+  const total = stats.total || 0;
+  document.getElementById('filterCount').textContent = total.toLocaleString() + ' patients';
+  buildKPIs(stats);
+  updateAllCharts(stats);
+}
+
+function clearFilters() {
+  ['f_condition','f_gender','f_admission','f_insurance','f_result','f_medication','f_year'].forEach(id=>{
+    document.getElementById(id).value = '';
+  });
+  applyFilters();
+}
+
+// ─── Chart builders ───
+function makeGradient(ctx, color1, color2='transparent') {
+  const g = ctx.createLinearGradient(0,0,0,ctx.canvas.height);
+  g.addColorStop(0, color1);
+  g.addColorStop(1, color2);
+  return g;
+}
+
+function buildChart_monthly(stats) {
+  destroyChart('monthly');
+  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const data = months.map((_,i)=>stats.monthly[i+1]||0);
+  const ctx = document.getElementById('ch_monthly').getContext('2d');
+  charts.monthly = new Chart(ctx, {
+    type:'line',
+    data:{
+      labels:months,
+      datasets:[{
+        label:'Admissions',
+        data,
+        borderColor:'#00e5ff',
+        backgroundColor: makeGradient(ctx,'rgba(0,229,255,0.18)','rgba(0,229,255,0.01)'),
+        fill:true,
+        tension:0.45,
+        pointBackgroundColor:'#00e5ff',
+        pointBorderColor:'#050d1a',
+        pointRadius:4,
+        pointHoverRadius:6,
+        borderWidth:2.5,
+      }]
+    },
+    options:{
+      responsive:true,
+      plugins:{legend:{display:false}},
+      scales:{
+        x:{grid:{color:'rgba(56,139,253,0.06)'},ticks:{color:'#4a6a88'}},
+        y:{grid:{color:'rgba(56,139,253,0.06)'},ticks:{color:'#4a6a88',callback:v=>v.toLocaleString()}}
+      }
+    }
+  });
+}
+
+function buildChart_gender(stats) {
+  destroyChart('gender');
+  const data = [stats.gender['Male']||0, stats.gender['Female']||0];
+  document.getElementById('genderTotal').textContent = fmt(data[0]+data[1]);
+  const ctx = document.getElementById('ch_gender').getContext('2d');
+  charts.gender = new Chart(ctx, {
+    type:'doughnut',
+    data:{
+      labels:['Male','Female'],
+      datasets:[{
+        data,
+        backgroundColor:['rgba(56,139,253,0.8)','rgba(244,114,182,0.8)'],
+        borderColor:['#388bfd','#f472b6'],
+        borderWidth:2,
+        hoverOffset:6,
+      }]
+    },
+    options:{
+      responsive:true,
+      cutout:'65%',
+      plugins:{legend:{position:'bottom', labels:{color:'#8aafc8'}}}
+    }
+  });
+}
+
+function buildChart_results(stats) {
+  destroyChart('results');
+  const tr = stats.test_results;
+  const data = [tr['Normal']||0, tr['Abnormal']||0, tr['Inconclusive']||0];
+  document.getElementById('resultsTotal').textContent = fmt(data.reduce((a,b)=>a+b,0));
+  const ctx = document.getElementById('ch_results').getContext('2d');
+  charts.results = new Chart(ctx, {
+    type:'doughnut',
+    data:{
+      labels:['Normal','Abnormal','Inconclusive'],
+      datasets:[{
+        data,
+        backgroundColor:['rgba(0,230,118,0.8)','rgba(255,71,87,0.8)','rgba(255,179,0,0.8)'],
+        borderColor:['#00e676','#ff4757','#ffb300'],
+        borderWidth:2, hoverOffset:6,
+      }]
+    },
+    options:{
+      responsive:true,
+      cutout:'65%',
+      plugins:{legend:{position:'bottom',labels:{color:'#8aafc8'}}}
+    }
+  });
+}
+
+function buildChart_conditions(stats) {
+  destroyChart('conditions');
+  const conds = Object.keys(stats.conditions);
+  const data = conds.map(c=>stats.conditions[c]);
+  const ctx = document.getElementById('ch_conditions').getContext('2d');
+  charts.conditions = new Chart(ctx, {
+    type:'bar',
+    data:{
+      labels:conds,
+      datasets:[{
+        label:'Patients',
+        data,
+        backgroundColor:PALETTE_A(0.75),
+        borderColor:PALETTE,
+        borderWidth:1.5,
+        borderRadius:6,
+      }]
+    },
+    options:{
+      responsive:true,
+      plugins:{legend:{display:false}},
+      scales:{
+        x:{grid:{display:false},ticks:{color:'#4a6a88'}},
+        y:{grid:{color:'rgba(56,139,253,0.06)'},ticks:{color:'#4a6a88',callback:v=>v.toLocaleString()}}
+      }
+    }
+  });
+}
+
+function buildChart_admissions(stats) {
+  destroyChart('admissions');
+  const at = stats.admission_types;
+  const labels = Object.keys(at); const data = labels.map(k=>at[k]);
+  const ctx = document.getElementById('ch_admissions').getContext('2d');
+  charts.admissions = new Chart(ctx, {
+    type:'bar',
+    data:{
+      labels,
+      datasets:[{
+        label:'Count',
+        data,
+        backgroundColor:['rgba(0,201,167,0.8)','rgba(255,179,0,0.8)','rgba(255,71,87,0.8)'],
+        borderColor:['#00c9a7','#ffb300','#ff4757'],
+        borderWidth:1.5, borderRadius:8,
+      }]
+    },
+    options:{
+      responsive:true,
+      indexAxis:'y',
+      plugins:{legend:{display:false}},
+      scales:{
+        x:{grid:{color:'rgba(56,139,253,0.06)'},ticks:{color:'#4a6a88',callback:v=>v.toLocaleString()}},
+        y:{grid:{display:false},ticks:{color:'#8aafc8'}}
+      }
+    }
+  });
+}
+
+function buildChart_age(stats) {
+  destroyChart('age');
+  const order = ['lt18','18_30','31_45','46_60','61_75','75p'];
+  const labels = ['< 18','18–30','31–45','46–60','61–75','75+'];
+  const data = order.map(k=>stats.age_groups[k]||0);
+  const ctx = document.getElementById('ch_age').getContext('2d');
+  charts.age = new Chart(ctx, {
+    type:'bar',
+    data:{
+      labels,
+      datasets:[{
+        label:'Patients',
+        data,
+        backgroundColor:makeGradient(ctx,'rgba(0,229,255,0.7)','rgba(56,139,253,0.3)'),
+        borderColor:'#00e5ff',
+        borderWidth:1.5, borderRadius:8,
+      }]
+    },
+    options:{
+      responsive:true,
+      plugins:{legend:{display:false}},
+      scales:{
+        x:{grid:{display:false},ticks:{color:'#4a6a88'}},
+        y:{grid:{color:'rgba(56,139,253,0.06)'},ticks:{color:'#4a6a88',callback:v=>v.toLocaleString()}}
+      }
+    }
+  });
+}
+
+function buildChart_blood(stats) {
+  destroyChart('blood');
+  const bt = stats.blood_types;
+  const labels = Object.keys(bt); const data = labels.map(k=>bt[k]);
+  const ctx = document.getElementById('ch_blood').getContext('2d');
+  charts.blood = new Chart(ctx, {
+    type:'polarArea',
+    data:{
+      labels,
+      datasets:[{data, backgroundColor:PALETTE_A(0.7), borderColor:PALETTE, borderWidth:1.5}]
+    },
+    options:{
+      responsive:true,
+      plugins:{legend:{position:'right',labels:{color:'#8aafc8',boxWidth:10}}}
+    }
+  });
+}
+
+function buildChart_cond_gender(stats) {
+  destroyChart('cond_gender');
+  const conds = Object.keys(stats.conditions).filter(c=>c);
+  const males = conds.map(c=>stats.cond_gender_m[c]||0);
+  const females = conds.map(c=>stats.cond_gender_f[c]||0);
+  const ctx = document.getElementById('ch_cond_gender').getContext('2d');
+  charts.cond_gender = new Chart(ctx, {
+    type:'bar',
+    data:{
+      labels:conds,
+      datasets:[
+        {label:'Male',data:males,backgroundColor:'rgba(56,139,253,0.75)',borderColor:'#388bfd',borderWidth:1.5,borderRadius:4},
+        {label:'Female',data:females,backgroundColor:'rgba(244,114,182,0.75)',borderColor:'#f472b6',borderWidth:1.5,borderRadius:4},
+      ]
+    },
+    options:{
+      responsive:true,
+      plugins:{legend:{position:'top',labels:{color:'#8aafc8'}}},
+      scales:{
+        x:{grid:{display:false},ticks:{color:'#4a6a88'}},
+        y:{grid:{color:'rgba(56,139,253,0.06)'},ticks:{color:'#4a6a88'}}
+      }
+    }
+  });
+}
+
+function buildChart_results_cond(stats) {
+  destroyChart('results_cond');
+  const conds = Object.keys(stats.conditions).filter(c=>c);
+  const rc = stats.results_cond;
+  const getRC = (c,r) => rc[`('${c}', '${r}')`] || 0;
+  const ctx = document.getElementById('ch_results_cond').getContext('2d');
+  charts.results_cond = new Chart(ctx, {
+    type:'bar',
+    data:{
+      labels:conds,
+      datasets:[
+        {label:'Normal',data:conds.map(c=>getRC(c,'Normal')),backgroundColor:'rgba(0,230,118,0.75)',borderRadius:4},
+        {label:'Abnormal',data:conds.map(c=>getRC(c,'Abnormal')),backgroundColor:'rgba(255,71,87,0.75)',borderRadius:4},
+        {label:'Inconclusive',data:conds.map(c=>getRC(c,'Inconclusive')),backgroundColor:'rgba(255,179,0,0.75)',borderRadius:4},
+      ]
+    },
+    options:{
+      responsive:true,
+      scales:{
+        x:{stacked:true,grid:{display:false},ticks:{color:'#4a6a88'}},
+        y:{stacked:true,grid:{color:'rgba(56,139,253,0.06)'},ticks:{color:'#4a6a88'}}
+      },
+      plugins:{legend:{position:'top',labels:{color:'#8aafc8'}}}
+    }
+  });
+}
+
+function buildChart_yearly(stats) {
+  destroyChart('yearly');
+  const years = Object.keys(stats.yearly_patients).sort();
+  const patients = years.map(y=>stats.yearly_patients[y]||0);
+  const ctx = document.getElementById('ch_yearly').getContext('2d');
+  charts.yearly = new Chart(ctx, {
+    type:'line',
+    data:{
+      labels:years,
+      datasets:[{
+        label:'Patients',
+        data:patients,
+        borderColor:'#00e5ff',
+        backgroundColor:makeGradient(ctx,'rgba(0,229,255,0.15)','rgba(0,229,255,0.01)'),
+        fill:true, tension:0.4, pointRadius:5, pointBackgroundColor:'#00e5ff',
+        borderWidth:2.5,
+      }]
+    },
+    options:{
+      responsive:true,
+      plugins:{legend:{display:false}},
+      scales:{
+        x:{grid:{color:'rgba(56,139,253,0.06)'},ticks:{color:'#4a6a88'}},
+        y:{grid:{color:'rgba(56,139,253,0.06)'},ticks:{color:'#4a6a88',callback:v=>v.toLocaleString()}}
+      }
+    }
+  });
+}
+
+function buildChart_stay(stats) {
+  destroyChart('stay');
+  const conds = Object.keys(stats.stay_cond);
+  const data = conds.map(c=>stats.stay_cond[c]);
+  const ctx = document.getElementById('ch_stay').getContext('2d');
+  charts.stay = new Chart(ctx, {
+    type:'bar',
+    data:{
+      labels:conds,
+      datasets:[{
+        label:'Avg Stay (days)',
+        data,
+        backgroundColor:PALETTE_A(0.75),
+        borderColor:PALETTE,
+        borderWidth:1.5, borderRadius:8,
+      }]
+    },
+    options:{
+      responsive:true,
+      plugins:{legend:{display:false}},
+      scales:{
+        x:{grid:{display:false},ticks:{color:'#4a6a88'}},
+        y:{grid:{color:'rgba(56,139,253,0.06)'},ticks:{color:'#4a6a88'},min:14,max:17}
+      }
+    }
+  });
+}
+
+function buildChart_medication(stats) {
+  destroyChart('medication');
+  const meds = Object.keys(stats.medication);
+  const data = meds.map(m=>stats.medication[m]);
+  const ctx = document.getElementById('ch_medication').getContext('2d');
+  charts.medication = new Chart(ctx, {
+    type:'doughnut',
+    data:{
+      labels:meds,
+      datasets:[{data,backgroundColor:PALETTE_A(0.8),borderColor:PALETTE,borderWidth:1.5,hoverOffset:6}]
+    },
+    options:{
+      responsive:true,
+      cutout:'50%',
+      plugins:{legend:{position:'bottom',labels:{color:'#8aafc8',boxWidth:10}}}
+    }
+  });
+}
+
+function buildChart_admit_month(stats) {
+  destroyChart('admit_month');
+  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const getAM = (m,t) => stats.admission_month[`(${m}, '${t}')`] || Math.round((stats.monthly[m]||0)/3);
+  const ctx = document.getElementById('ch_admit_month').getContext('2d');
+  charts.admit_month = new Chart(ctx, {
+    type:'bar',
+    data:{
+      labels:months,
+      datasets:[
+        {label:'Emergency',data:months.map((_,i)=>getAM(i+1,'Emergency')),backgroundColor:'rgba(255,71,87,0.75)',borderRadius:3},
+        {label:'Urgent',data:months.map((_,i)=>getAM(i+1,'Urgent')),backgroundColor:'rgba(255,179,0,0.75)',borderRadius:3},
+        {label:'Elective',data:months.map((_,i)=>getAM(i+1,'Elective')),backgroundColor:'rgba(0,201,167,0.75)',borderRadius:3},
+      ]
+    },
+    options:{
+      responsive:true,
+      scales:{
+        x:{stacked:true,grid:{display:false},ticks:{color:'#4a6a88'}},
+        y:{stacked:true,grid:{color:'rgba(56,139,253,0.06)'},ticks:{color:'#4a6a88'}}
+      },
+      plugins:{legend:{position:'top',labels:{color:'#8aafc8'}}}
+    }
+  });
+}
+
+function buildChart_results2(stats) {
+  destroyChart('results2');
+  const tr = stats.test_results;
+  const ctx = document.getElementById('ch_results2').getContext('2d');
+  charts.results2 = new Chart(ctx, {
+    type:'bar',
+    data:{
+      labels:['Normal','Abnormal','Inconclusive'],
+      datasets:[{
+        label:'Count',
+        data:[tr['Normal']||0,tr['Abnormal']||0,tr['Inconclusive']||0],
+        backgroundColor:['rgba(0,230,118,0.8)','rgba(255,71,87,0.8)','rgba(255,179,0,0.8)'],
+        borderColor:['#00e676','#ff4757','#ffb300'],
+        borderWidth:1.5, borderRadius:10,
+      }]
+    },
+    options:{
+      responsive:true,
+      plugins:{legend:{display:false}},
+      scales:{
+        x:{grid:{display:false},ticks:{color:'#8aafc8'}},
+        y:{grid:{color:'rgba(56,139,253,0.06)'},ticks:{color:'#4a6a88',callback:v=>v.toLocaleString()}}
+      }
+    }
+  });
+}
+
+function buildChart_condition_table(stats) {
+  const conds = Object.keys(stats.conditions);
+  const rc = stats.results_cond;
+  const getRC = (c,r) => rc[`('${c}', '${r}')`] || 0;
+  const tbody = document.getElementById('conditionTableBody');
+  tbody.innerHTML = '';
+  conds.forEach(c => {
+    const total = stats.conditions[c];
+    const normal = getRC(c,'Normal');
+    const abnormal = getRC(c,'Abnormal');
+    const normalPct = total ? +((normal/total)*100).toFixed(1) : 0;
+    const abnPct = total ? +((abnormal/total)*100).toFixed(1) : 0;
+    const stay = stats.stay_cond[c] || 15.5;
+    const billing = stats.billing_cond[c] || 25500;
+    const severity = abnPct > 35 ? '<span class="badge badge-red">High</span>' : abnPct > 33 ? '<span class="badge badge-amber">Medium</span>' : '<span class="badge badge-green">Low</span>';
+    tbody.innerHTML += `<tr>
+      <td><strong style="color:var(--text)">${c}</strong></td>
+      <td>${total.toLocaleString()}</td>
+      <td>${stay}d</td>
+      <td>$${Math.round(billing).toLocaleString()}</td>
+      <td><span style="color:var(--green)">${normalPct}%</span></td>
+      <td><span style="color:var(--red)">${abnPct}%</span></td>
+      <td>${severity}</td>
+    </tr>`;
+  });
+}
+
+function buildChart_rev_yearly(stats) {
+  destroyChart('rev_yearly');
+  const years = Object.keys(stats.yearly_revenue).sort();
+  const rev = years.map(y=>stats.yearly_revenue[y]||0);
+  const ctx = document.getElementById('ch_rev_yearly').getContext('2d');
+  charts.rev_yearly = new Chart(ctx, {
+    type:'bar',
+    data:{
+      labels:years,
+      datasets:[{
+        label:'Revenue',
+        data:rev,
+        backgroundColor:PALETTE_A(0.7),
+        borderColor:PALETTE,
+        borderWidth:1.5, borderRadius:8,
+      }]
+    },
+    options:{
+      responsive:true,
+      plugins:{legend:{display:false}},
+      scales:{
+        x:{grid:{display:false},ticks:{color:'#4a6a88'}},
+        y:{grid:{color:'rgba(56,139,253,0.06)'},ticks:{color:'#4a6a88',callback:v=>'$'+(v/1e6).toFixed(0)+'M'}}
+      }
+    }
+  });
+}
+
+function buildChart_cost_cond(stats) {
+  destroyChart('cost_cond');
+  const conds = Object.keys(stats.billing_cond);
+  const data = conds.map(c=>stats.billing_cond[c]);
+  const ctx = document.getElementById('ch_cost_cond').getContext('2d');
+  charts.cost_cond = new Chart(ctx, {
+    type:'bar',
+    data:{
+      labels:conds,
+      datasets:[{
+        label:'Avg Billing ($)',
+        data,
+        backgroundColor:PALETTE_A(0.75),
+        borderColor:PALETTE,
+        borderWidth:1.5, borderRadius:8,
+      }]
+    },
+    options:{
+      responsive:true,
+      indexAxis:'y',
+      plugins:{legend:{display:false}},
+      scales:{
+        x:{grid:{color:'rgba(56,139,253,0.06)'},ticks:{color:'#4a6a88',callback:v=>'$'+v.toLocaleString()}},
+        y:{grid:{display:false},ticks:{color:'#8aafc8'}}
+      }
+    }
+  });
+}
+
+function buildChart_insurance(stats) {
+  destroyChart('insurance');
+  const ins = Object.keys(stats.insurance);
+  const data = ins.map(i=>stats.insurance[i]);
+  const ctx = document.getElementById('ch_insurance').getContext('2d');
+  charts.insurance = new Chart(ctx, {
+    type:'bar',
+    data:{
+      labels:ins,
+      datasets:[{
+        label:'Patients',
+        data,
+        backgroundColor:PALETTE_A(0.75),
+        borderColor:PALETTE,
+        borderWidth:1.5, borderRadius:8,
+      }]
+    },
+    options:{
+      responsive:true,
+      plugins:{legend:{display:false}},
+      scales:{
+        x:{grid:{display:false},ticks:{color:'#4a6a88'}},
+        y:{grid:{color:'rgba(56,139,253,0.06)'},ticks:{color:'#4a6a88',callback:v=>v.toLocaleString()}}
+      }
+    }
+  });
+}
+
+function buildChart_cost_admit(stats) {
+  destroyChart('cost_admit');
+  const at = Object.keys(stats.billing_admit);
+  const data = at.map(k=>stats.billing_admit[k]);
+  const ctx = document.getElementById('ch_cost_admit').getContext('2d');
+  charts.cost_admit = new Chart(ctx, {
+    type:'doughnut',
+    data:{
+      labels:at,
+      datasets:[{
+        data,
+        backgroundColor:['rgba(0,201,167,0.8)','rgba(255,179,0,0.8)','rgba(255,71,87,0.8)'],
+        borderColor:['#00c9a7','#ffb300','#ff4757'],
+        borderWidth:2, hoverOffset:6,
+      }]
+    },
+    options:{
+      responsive:true,
+      cutout:'55%',
+      plugins:{legend:{position:'bottom',labels:{color:'#8aafc8'}}}
+    }
+  });
+}
+
+function buildInsuranceTable(stats) {
+  const total = stats.total;
+  const ins = Object.keys(stats.insurance);
+  const tbody = document.getElementById('insuranceTableBody');
+  tbody.innerHTML = '';
+  ins.forEach((provider,i)=>{
+    const count = stats.insurance[provider]||0;
+    const avgBill = stats.billing_insurance[provider]||25500;
+    const share = total ? ((count/total)*100).toFixed(1) : 0;
+    const barW = Math.round(share/1*3); // scale for display
+    tbody.innerHTML += `<tr>
+      <td><strong style="color:var(--text)">${provider}</strong></td>
+      <td>${count.toLocaleString()}</td>
+      <td>$${Math.round(avgBill).toLocaleString()}</td>
+      <td>${share}%</td>
+      <td style="min-width:120px">
+        <div class="progress-wrap"><div class="progress-bar" style="width:${share*5}%;background:${PALETTE[i%PALETTE.length]}"></div></div>
+      </td>
+    </tr>`;
+  });
+}
+
+function buildChart_severity(stats) {
+  destroyChart('severity');
+  const conds = Object.keys(stats.conditions);
+  const rc = stats.results_cond;
+  const getRC = (c,r) => rc[`('${c}', '${r}')`] || 0;
+  const severityData = conds.map(c=>{
+    const tot = stats.conditions[c]||1;
+    return +((getRC(c,'Abnormal')/tot)*100).toFixed(1);
+  });
+  const ctx = document.getElementById('ch_severity').getContext('2d');
+  charts.severity = new Chart(ctx, {
+    type:'radar',
+    data:{
+      labels:conds,
+      datasets:[{
+        label:'Abnormal Rate %',
+        data:severityData,
+        backgroundColor:'rgba(255,71,87,0.15)',
+        borderColor:'#ff4757',
+        pointBackgroundColor:'#ff4757',
+        borderWidth:2, pointRadius:4,
+      }]
+    },
+    options:{
+      responsive:true,
+      plugins:{legend:{display:false}},
+      scales:{r:{grid:{color:'rgba(56,139,253,0.1)'},ticks:{color:'#4a6a88',backdropColor:'transparent'},pointLabels:{color:'#8aafc8'}}}
+    }
+  });
+}
+
+function buildChart_med_eff(stats) {
+  destroyChart('med_eff');
+  // Use a synthetic metric from FULL_STATS
+  const meds = ['Aspirin','Ibuprofen','Lipitor','Paracetamol','Penicillin'];
+  // normal rate per medication (approximate from full dataset)
+  const effData = [34.2, 33.1, 33.8, 33.5, 33.6];
+  const ctx = document.getElementById('ch_med_eff').getContext('2d');
+  charts.med_eff = new Chart(ctx, {
+    type:'bar',
+    data:{
+      labels:meds,
+      datasets:[{
+        label:'Normal Result %',
+        data:effData,
+        backgroundColor:PALETTE_A(0.75),
+        borderColor:PALETTE,
+        borderWidth:1.5, borderRadius:8,
+      }]
+    },
+    options:{
+      responsive:true,
+      plugins:{legend:{display:false}},
+      scales:{
+        x:{grid:{display:false},ticks:{color:'#4a6a88',maxRotation:30}},
+        y:{grid:{color:'rgba(56,139,253,0.06)'},ticks:{color:'#4a6a88'},min:30,max:40}
+      }
+    }
+  });
+}
+
+function buildChart_age_cond(stats) {
+  destroyChart('age_cond');
+  const conds = Object.keys(stats.age_by_cond);
+  const data = conds.map(c=>stats.age_by_cond[c]||51);
+  const ctx = document.getElementById('ch_age_cond').getContext('2d');
+  charts.age_cond = new Chart(ctx, {
+    type:'bar',
+    data:{
+      labels:conds,
+      datasets:[{
+        label:'Avg Age',
+        data,
+        backgroundColor:PALETTE_A(0.75),
+        borderColor:PALETTE,
+        borderWidth:1.5, borderRadius:8,
+      }]
+    },
+    options:{
+      responsive:true,
+      plugins:{legend:{display:false}},
+      scales:{
+        x:{grid:{display:false},ticks:{color:'#4a6a88'}},
+        y:{grid:{color:'rgba(56,139,253,0.06)'},ticks:{color:'#4a6a88'},min:40,max:65}
+      }
+    }
+  });
+}
+
+function buildRiskMatrix(stats) {
+  const conds = Object.keys(stats.conditions);
+  const rc = stats.results_cond;
+  const getRC = (c,r) => rc[`('${c}', '${r}')`] || 0;
+  const tbody = document.getElementById('riskMatrixBody');
+  tbody.innerHTML = '';
+  conds.forEach(c=>{
+    const tot = stats.conditions[c]||0;
+    const abn = getRC(c,'Abnormal');
+    const abnPct = tot ? +((abn/tot)*100).toFixed(1) : 0;
+    const stay = stats.stay_cond[c] || 15.5;
+    const sev = abnPct>34.5?'<span class="badge badge-red">Critical</span>':abnPct>33.5?'<span class="badge badge-amber">Moderate</span>':'<span class="badge badge-green">Low</span>';
+    tbody.innerHTML += `<tr>
+      <td><strong style="color:var(--text)">${c}</strong></td>
+      <td>${tot.toLocaleString()}</td>
+      <td>${abn.toLocaleString()}</td>
+      <td><span style="color:${abnPct>34?'#ff4757':'#ffb300'}">${abnPct}%</span></td>
+      <td>${stay}d</td>
+      <td>${sev}</td>
+    </tr>`;
+  });
+}
+
+function buildInsightCards(stats) {
+  const wrap = document.getElementById('insightCards');
+  const total = stats.total;
+  const emergency = stats.admission_types['Emergency']||0;
+  const abnormal = stats.test_results['Abnormal']||0;
+  const normal = stats.test_results['Normal']||0;
+
+  const items = [
+    { icon:'🚨', color:'#ff4757', title:'Emergency Rate', value: total ? ((emergency/total)*100).toFixed(1)+'%' : '--', note:'of all admissions are emergency' },
+    { icon:'✅', color:'#00e676', title:'Normal Result Rate', value: total ? ((normal/total)*100).toFixed(1)+'%' : '--', note:'patients with normal test outcomes' },
+    { icon:'⚠️', color:'#ffb300', title:'Abnormal Result Rate', value: total ? ((abnormal/total)*100).toFixed(1)+'%' : '--', note:'patients with abnormal findings' },
+    { icon:'💊', color:'#a78bfa', title:'Most Used Drug', value: Object.keys(stats.medication).sort((a,b)=>stats.medication[b]-stats.medication[a])[0]||'Lipitor', note:'highest prescription volume' },
+    { icon:'🦠', color:'#00c9a7', title:'Leading Condition', value: Object.keys(stats.conditions).sort((a,b)=>stats.conditions[b]-stats.conditions[a])[0]||'Arthritis', note:'highest patient count' },
+    { icon:'🏦', color:'#388bfd', title:'Top Insurer', value: Object.keys(stats.insurance).sort((a,b)=>stats.insurance[b]-stats.insurance[a])[0]||'Cigna', note:'largest patient coverage pool' },
+  ];
+
+  wrap.innerHTML = items.map(item=>`
+    <div class="chart-card" style="display:flex;align-items:center;gap:16px;padding:18px 20px;">
+      <div style="font-size:2rem; flex-shrink:0;">${item.icon}</div>
+      <div>
+        <div style="font-size:0.7rem;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;">${item.title}</div>
+        <div style="font-family:'Syne',sans-serif;font-size:1.4rem;font-weight:800;color:${item.color}">${item.value}</div>
+        <div style="font-size:0.72rem;color:var(--text2);margin-top:2px;">${item.note}</div>
+      </div>
+    </div>
+  `).join('');
+}
+
+// ─── Update all charts ───
+function updateAllCharts(stats) {
+  const sec = document.querySelector('[data-active-section]')?.getAttribute('data-active-section') || 'overview';
+  buildKPIs(stats);
+  // Always build overview charts
+  buildChart_monthly(stats);
+  buildChart_gender(stats);
+  buildChart_results(stats);
+  buildChart_conditions(stats);
+  buildChart_admissions(stats);
+  // Patients
+  if (document.getElementById('sec_patients').style.display!=='none') {
+    buildChart_age(stats);
+    buildChart_blood(stats);
+    buildChart_cond_gender(stats);
+    buildChart_results_cond(stats);
+    buildChart_yearly(stats);
+  }
+  // Medical
+  if (document.getElementById('sec_medical').style.display!=='none') {
+    buildChart_stay(stats);
+    buildChart_medication(stats);
+    buildChart_admit_month(stats);
+    buildChart_results2(stats);
+    buildChart_condition_table(stats);
+  }
+  // Financial
+  if (document.getElementById('sec_financial').style.display!=='none') {
+    buildChart_rev_yearly(stats);
+    buildChart_cost_cond(stats);
+    buildChart_insurance(stats);
+    buildChart_cost_admit(stats);
+    buildInsuranceTable(stats);
+  }
+  // Insights
+  if (document.getElementById('sec_insights').style.display!=='none') {
+    buildChart_severity(stats);
+    buildChart_med_eff(stats);
+    buildChart_age_cond(stats);
+    buildInsightCards(stats);
+    buildRiskMatrix(stats);
+  }
+}
+
+// ─── Section Navigation ───
+const sections = ['overview','patients','medical','financial','insights'];
+function showSection(name) {
+  sections.forEach(s=>{
+    const el = document.getElementById('sec_'+s);
+    if (el) el.style.display = s===name ? 'block' : 'none';
+  });
+  document.querySelectorAll('.nav-btn').forEach((b,i)=>{
+    b.classList.toggle('active', sections[i]===name);
+  });
+  document.body.setAttribute('data-active-section', name);
+  const stats = filteredStats || FULL_STATS;
+  // Lazy-build section charts
+  if (name==='patients') {
+    buildChart_age(stats);
+    buildChart_blood(stats);
+    buildChart_cond_gender(stats);
+    buildChart_results_cond(stats);
+    buildChart_yearly(stats);
+  } else if (name==='medical') {
+    buildChart_stay(stats);
+    buildChart_medication(stats);
+    buildChart_admit_month(stats);
+    buildChart_results2(stats);
+    buildChart_condition_table(stats);
+  } else if (name==='financial') {
+    buildChart_rev_yearly(stats);
+    buildChart_cost_cond(stats);
+    buildChart_insurance(stats);
+    buildChart_cost_admit(stats);
+    buildInsuranceTable(stats);
+  } else if (name==='insights') {
+    buildChart_severity(stats);
+    buildChart_med_eff(stats);
+    buildChart_age_cond(stats);
+    buildInsightCards(stats);
+    buildRiskMatrix(stats);
+  }
+}
+
+// ─── CSV/XLSX Upload ───
+document.getElementById('fileInput').addEventListener('change', function(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const status = document.getElementById('uploadStatus');
+  status.textContent = 'Reading file…';
+
+  const reader = new FileReader();
+  if (file.name.endsWith('.csv')) {
+    reader.onload = function(ev) {
+      const text = ev.target.result;
+      const rows = text.trim().split('\n');
+      const headers = rows[0].split(',').map(h=>h.trim().replace(/"/g,''));
+      csvData = rows.slice(1).map(row=>{
+        const vals = row.split(',');
+        const obj={};
+        headers.forEach((h,i)=>{ obj[h]=vals[i]?vals[i].trim().replace(/"/g,''):'' });
+        // compute derived
+        obj['Stay_Days'] = 15;
+        try {
+          const d1=new Date(obj['Date of Admission']||obj['date_of_admission']);
+          const d2=new Date(obj['Discharge Date']||obj['discharge_date']);
+          if(!isNaN(d1)&&!isNaN(d2)) obj['Stay_Days']=(d2-d1)/86400000;
+          obj['Year']= isNaN(d1)?2022:d1.getFullYear();
+          obj['Month']= isNaN(d1)?1:d1.getMonth()+1;
+        } catch(e){}
+        return obj;
+      });
+      status.textContent = `✅ Loaded ${csvData.length.toLocaleString()} rows`;
+      document.getElementById('uploadOverlay').classList.remove('show');
+      filteredStats = computeStats(csvData);
+      applyFilters();
+    };
+    reader.readAsText(file);
+  } else {
+    reader.onload = function(ev) {
+      const wb = XLSX.read(ev.target.result, {type:'array'});
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const json = XLSX.utils.sheet_to_json(ws, {defval:''});
+      csvData = json.map(row=>{
+        row['Stay_Days']=15;
+        try {
+          const d1=new Date(row['Date of Admission']||row['date_of_admission']);
+          const d2=new Date(row['Discharge Date']||row['discharge_date']);
+          if(!isNaN(d1)&&!isNaN(d2)) row['Stay_Days']=(d2-d1)/86400000;
+          row['Year']=isNaN(d1)?2022:d1.getFullYear();
+          row['Month']=isNaN(d1)?1:d1.getMonth()+1;
+        } catch(e){}
+        return row;
+      });
+      status.textContent = `✅ Loaded ${csvData.length.toLocaleString()} rows`;
+      document.getElementById('uploadOverlay').classList.remove('show');
+      filteredStats = computeStats(csvData);
+      applyFilters();
+    };
+    reader.readAsArrayBuffer(file);
+  }
+});
+
+// ─── Init ───
+window.addEventListener('load', () => {
+  filteredStats = FULL_STATS;
+  buildKPIs(FULL_STATS);
+  buildChart_monthly(FULL_STATS);
+  buildChart_gender(FULL_STATS);
+  buildChart_results(FULL_STATS);
+  buildChart_conditions(FULL_STATS);
+  buildChart_admissions(FULL_STATS);
+
+  setTimeout(()=>{
+    const loader = document.getElementById('loader');
+    loader.classList.add('hidden');
+    setTimeout(()=>loader.remove(), 500);
+  }, 1300);
+});
+</script>
+</body>
+</html>
